@@ -1,6 +1,6 @@
 {
   "name": "@ubay182/vue-auto-shimmer",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Vue 3 auto shimmer loading component",
   "private": false,
   "type": "module",
@@ -43,13 +43,15 @@
     "vite-plugin-dts": "^5.0.0",
     "vue-tsc": "^3.2.7"
   },
-  "main": "./dist/vue-auto-shimmer.umd.cjs",
-  "module": "./dist/vue-auto-shimmer.js",
+  "main": "./dist/vue-auto-shimmer.cjs",
+  "module": "./dist/vue-auto-shimmer.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/vue-auto-shimmer.js",
-      "require": "./dist/vue-auto-shimmer.umd.cjs"
-    }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vue-auto-shimmer.mjs",
+      "require": "./dist/vue-auto-shimmer.cjs"
+    },
+    "./style.css": "./dist/vue-auto-shimmer.css"
   }
 }

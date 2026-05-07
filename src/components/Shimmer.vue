@@ -25,13 +25,22 @@ const slots = useSlots();
 const innerRef = ref<HTMLElement | null>(null);
 const blocks = ref<any>([]);
 
-const measureElements = async () => {
+// Guard agar tidak ada concurrent measurement
+let measuring = false;
+
+/**
+ * Mengukur posisi elemen di dalam innerRef.
+ * @param skipDelays - true saat dipanggil dari ResizeObserver (layout sudah stabil)
+ */
+const measureElements = async (skipDelays = false) => {
   if (!innerRef.value) return [];
 
-  // 1. Tunggu DOM update
-  await nextTick();
-  // 2. Tunggu Browser Paint (Wajib untuk layout yang stabil)
-  await new Promise((res) => requestAnimationFrame(res));
+  if (!skipDelays) {
+    // 1. Tunggu DOM update
+    await nextTick();
+    // 2. Tunggu Browser Paint (Wajib untuk layout yang stabil)
+    await new Promise((res) => requestAnimationFrame(res));
+  }
 
   // Ukur relatif terhadap INNER (0,0 adalah pojok kiri atas setelah padding)
   const containerRect = innerRef.value.getBoundingClientRect();
@@ -124,13 +133,42 @@ const update = async () => {
   }
 };
 
+/**
+ * Handler resize — selalu force re-measure (skip cache),
+ * skip delays karena ResizeObserver fires post-layout.
+ */
+const handleResize = async () => {
+  if (!innerRef.value || measuring) return;
+  measuring = true;
+  try {
+    if (props.loading) {
+      // Saat loading: re-measure skeleton/cached content langsung
+      if (slots.skeleton || blocks.value.length > 0) {
+        const fresh = await measureElements(true);
+        blocks.value = fresh;
+        if (props.cacheKey) {
+          shimmerCache.set(props.cacheKey, fresh);
+        }
+      }
+    } else {
+      // Saat tidak loading: re-measure konten asli & update cache
+      const real = await measureElements(true);
+      if (props.cacheKey) {
+        shimmerCache.set(props.cacheKey, real);
+      }
+    }
+  } finally {
+    measuring = false;
+  }
+};
+
 watch(() => props.loading, update);
 
 onMounted(async () => {
   await update();
   if (innerRef.value) {
     const ro = new ResizeObserver(() => {
-      if (!props.loading) update();
+      handleResize();
     });
     ro.observe(innerRef.value);
     onBeforeUnmount(() => ro.disconnect());

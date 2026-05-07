@@ -19,7 +19,7 @@ const fetchData = () => {
       tags: ["Vue 3", "TypeScript", "UI/UX", "Frontend", "Backend", "DevOps"], // Added more tags to test wrap
     };
     loading.value = false;
-  }, 1500);
+  }, 10000);
 };
 
 onMounted(() => fetchData());

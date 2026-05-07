@@ -21,6 +21,7 @@ export default defineConfig(({ command }) => {
     plugins: [
       vue(),
       dts({
+        tsconfigPath: './tsconfig.app.json',
         insertTypesEntry: true,
         exclude: ['playground', 'node_modules']
       })
@@ -35,7 +36,10 @@ export default defineConfig(({ command }) => {
       },
       rollupOptions: {
         external: ['vue'],
-        output: { globals: { vue: 'Vue' } }
+        output: { 
+          globals: { vue: 'Vue' },
+          exports: 'named'
+        }
       },
       sourcemap: true,
       emptyOutDir: true

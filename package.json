@@ -1,0 +1,55 @@
+{
+  "name": "@ubay182/vue-auto-shimmer",
+  "version": "0.1.0",
+  "description": "Vue 3 auto shimmer loading component",
+  "private": false,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubay1/vue-auto-shimmer.git"
+  },
+  "keywords": [
+    "vue",
+    "vue3",
+    "shimmer",
+    "skeleton",
+    "loading",
+    "auto-shimmer"
+  ],
+  "author": "ubay182",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ubay1/vue-auto-shimmer/issues"
+  },
+  "homepage": "https://github.com/ubay1/vue-auto-shimmer#readme",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.32",
+    "vue-router": "^5.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.10",
+    "vite-plugin-dts": "^5.0.0",
+    "vue-tsc": "^3.2.7"
+  },
+  "main": "./dist/vue-auto-shimmer.umd.cjs",
+  "module": "./dist/vue-auto-shimmer.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/vue-auto-shimmer.js",
+      "require": "./dist/vue-auto-shimmer.umd.cjs"
+    }
+  }
+}

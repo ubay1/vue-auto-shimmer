@@ -1,8 +1,9 @@
 # ✨ Vue Auto Shimmer
 
 [![npm version](https://img.shields.io/npm/v/@ubay182/vue-auto-shimmer.svg)](https://www.npmjs.com/package/@ubay182/vue-auto-shimmer)
-[![License](https://img.shields.io/npm/l/@ubay182/vue-auto-shimmer.svg)](https://github.com/yourusername/@ubay182/vue-auto-shimmer/blob/main/LICENSE)
+[![License](https://img.shields.io/npm/l/@ubay182/vue-auto-shimmer.svg)](https://github.com/ubay1/vue-auto-shimmer/blob/main/LICENSE)
 [![Vue 3](https://img.shields.io/badge/Vue-3.x-4FC08D.svg)](https://vuejs.org)
+[![Nuxt](https://img.shields.io/badge/Nuxt-3.x%20%7C%204.x-00DC82.svg)](https://nuxt.com)
 
 > 🚀 Auto-adapting shimmer loader untuk Vue 3 yang **otomatis menyesuaikan bentuk, ukuran, dan posisi** dengan UI asli Anda. Tidak ada lagi skeleton manual yang tidak presisi!
 
@@ -16,8 +17,8 @@
 - 📐 **Padding & Border Aware**: Mendukung padding, border, border-radius, dan box-shadow via props
 - 🔄 **Resize Observer**: Auto-update saat konten berubah ukuran (responsive, flex-wrap, dll)
 - 🌗 **Framework Agnostic**: Tidak tergantung Tailwind, Bootstrap, atau CSS framework apapun
-- ♿ **A11y Friendly**: `aria-hidden`, `pointer-events: none`, dan transisi halus
-- 📦 **Tree-shakable**: Bundle size minimal, hanya import yang dipakai
+- 🟢 **Nuxt Ready**: SSR-safe, bekerja langsung di Nuxt 3/4 dengan `<ClientOnly />` atau tanpa `<ClientOnly>`
+- 📦 **Zero CSS Import**: Komponen sepenuhnya self-contained, tidak perlu import CSS terpisah
 - 🛠️ **TypeScript Ready**: Full type definitions included
 
 ## 📦 Instalasi
@@ -64,6 +65,125 @@ const data = ref(null);
     </template>
   </Shimmer>
 </template>
+```
+
+## Usage with Nuxt 3/4 & Tailwind CSS
+
+```ts
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+import { Shimmer } from "@ubay182/vue-auto-shimmer";
+// import Shimmer from "@/components/Shimmer2.vue";
+
+const loading = ref(true);
+const user = ref<any>(null);
+
+const fetchData = () => {
+  loading.value = true;
+  // Simulasi data dinamis
+  const names = ["Ubaidillah Rahman", "Budi Santoso", "Siti Aminah"];
+  const randomName = names[Math.floor(Math.random() * names.length)];
+
+  setTimeout(() => {
+    user.value = {
+      name: randomName,
+      bio: "Fullstack Developer & Vue.js Enthusiast.",
+      avatar: "https://placehold.co/100x100/e2e8f0/475569?text=UR",
+      tags: ["Vue 3", "TypeScript", "UI/UX", "Frontend", "Backend", "DevOps"], // Added more tags to test wrap
+    };
+    loading.value = false;
+  }, 5000);
+};
+
+onMounted(() => fetchData());
+</script>
+
+<ClientOnly>
+    <Shimmer
+      :loading="loading"
+      cache-key="user-profile"
+      border="1px solid #e5e7eb"
+      border-radius="12px"
+      box-shadow="0 4px 12px rgba(0,0,0,0.05)"
+      bg-color="#ffffff"
+      padding="1.5rem"
+    >
+      <!-- KONTEN ASLI -->
+      <div class="flex flex-col items-center text-center w-full">
+        <img
+          v-if="user?.avatar"
+          :src="user.avatar"
+          class="w-16 h-16 rounded-full mb-4 object-cover"
+        />
+        <h2 class="text-2xl font-bold text-gray-900 mb-2 w-full">
+          {{ user?.name || "Loading Name..." }}
+        </h2>
+        <p class="text-gray-600 leading-relaxed mb-4 w-full">
+          {{ user?.bio || "Loading bio..." }}
+        </p>
+
+        <!-- Tags Container dengan Flex Wrap -->
+        <div class="flex flex-wrap gap-2 mb-4 justify-center w-full">
+          <span
+            v-for="tag in user?.tags || []"
+            :key="tag"
+            class="bg-indigo-50 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap"
+          >
+            {{ tag }}
+          </span>
+        </div>
+
+        <button class="px-5 py-2.5 border-none rounded-lg cursor-pointer font-medium text-sm bg-indigo-600 text-white mt-2">
+          <RouterLink to="/profile" class="text-white">
+            View Profile
+          </RouterLink>
+        </button>
+      </div>
+
+      <!-- SKELETON BLUEPRINT -->
+      <template #skeleton>
+        <div class="flex flex-col items-center text-center w-full">
+          <div class="w-16 h-16 rounded-full bg-gray-200 mb-4"></div>
+          <h2 class="w-3/5 h-6 bg-gray-200 rounded mb-2"></h2>
+          <p class="w-full h-4 bg-gray-200 rounded mb-4"></p>
+          <div class="flex flex-wrap gap-2 mb-4 justify-center w-full">
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+          </div>
+
+          <button class="px-5 py-2.5 border-none rounded-lg cursor-pointer font-medium text-sm bg-indigo-600 text-white mt-2">
+            View Profile
+          </button>
+        </div>
+      </template>
+    </Shimmer>
+
+    <template #fallback>
+      <div class="border border-gray-200 rounded-xl shadow-sm bg-white p-6">
+        <div class="flex flex-col items-center text-center w-full">
+          <div class="w-16 h-16 rounded-full bg-gray-200 mb-4"></div>
+          <h2 class="w-3/5 h-6 bg-gray-200 rounded mb-2"></h2>
+          <p class="w-full h-4 bg-gray-200 rounded mb-4"></p>
+          <div class="flex flex-wrap gap-2 mb-4 justify-center w-full">
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+            <span class="inline-block w-15 h-6 bg-gray-200 rounded-full"></span>
+          </div>
+
+          <div class="px-5 py-2.5 border-none rounded-lg font-medium text-sm bg-indigo-600 text-white mt-2">
+            View Profile
+          </div>
+        </div>
+      </div>
+    </template>
+  </ClientOnly>
 ```
 
 ## Global Registration (Opsional)
@@ -169,8 +289,8 @@ Gunakan data-shimmer-ignore untuk mengecualikan elemen tertentu dari shimmer:
 
 ```bash
 # Clone repo
-git clone https://github.com/ubay1/@ubay182/vue-auto-shimmer.git
-cd @ubay182/vue-auto-shimmer
+git clone https://github.com/ubay1/vue-auto-shimmer.git
+cd vue-auto-shimmer
 
 # Install dependencies
 npm install

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import Shimmer from "../../../src/components/Shimmer.vue";
+// import { Shimmer } from "@ubay182/vue-auto-shimmer";
 
 const loading = ref(true);
 const user = ref<any>(null);
@@ -19,7 +20,7 @@ const fetchData = () => {
       tags: ["Vue 3", "TypeScript", "UI/UX", "Frontend", "Backend", "DevOps"], // Added more tags to test wrap
     };
     loading.value = false;
-  }, 2000);
+  }, 5000);
 };
 
 onMounted(() => fetchData());

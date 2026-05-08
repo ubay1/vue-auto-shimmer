@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import Shimmer from "../../../src/components/Shimmer.vue";
+// import Shimmer from "../../../src/components/Shimmer.vue";
+import { Shimmer } from "@ubay182/vue-auto-shimmer";
 
 const route = useRoute();
 const router = useRouter();
@@ -98,7 +99,7 @@ const refreshProfile = () => fetchProfile(route.params.userId as string);
         <div class="profile-details">
           <div class="detail-item">
             <span class="label">Email</span>
-            <span class="value">{{ profile?.email || "..." }}</span>
+            <span class="value email">{{ profile?.email || "..." }}</span>
           </div>
           <div class="detail-item">
             <span class="label">Phone</span>
@@ -245,6 +246,10 @@ const refreshProfile = () => fetchProfile(route.params.userId as string);
   color: #111827;
   font-weight: 500;
   font-size: 0.95rem;
+
+  &.email {
+    overflow-wrap: anywhere;
+  }
 }
 
 .tags {

@@ -8,9 +8,23 @@ import {
   useSlots,
 } from "vue";
 
-// Cache disimpan di luar component agar persist antar re-render
-// dan bisa di-share antar instance dengan cacheKey yang sama
-const shimmerCache = new Map<string, any[]>();
+// SSR guard — cache hanya di client, hindari state pollution di server
+const shimmerCache: Map<string, any[]> | null =
+  typeof window !== "undefined" ? new Map() : null;
+
+/**
+ * Inject keyframes animation sekali saja (singleton).
+ * Ini menghindari ketergantungan pada external CSS file.
+ */
+const KEYFRAME_ID = "vue-auto-shimmer-keyframes";
+const ensureKeyframes = () => {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(KEYFRAME_ID)) return;
+  const style = document.createElement("style");
+  style.id = KEYFRAME_ID;
+  style.textContent = `@keyframes vue-auto-shimmer-move{0%{background-position:200% 0}100%{background-position:-200% 0}}`;
+  document.head.appendChild(style);
+};
 
 const props = defineProps<{
   loading?: boolean;
@@ -33,19 +47,41 @@ const hasLoadedOnce = ref(false);
 let measuring = false;
 
 /**
+ * Tunggu browser paint dengan double-rAF pattern.
+ * Double rAF memastikan satu full frame telah dipaint sebelum mengukur.
+ * Penting untuk SSR hydration di mana CSS/fonts mungkin belum fully applied.
+ */
+const waitForPaint = (): Promise<void> =>
+  new Promise((res) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => res())),
+  );
+
+/**
+ * Tunggu fonts loaded (jika API tersedia).
+ * Font yang belum load menyebabkan text elements punya dimensi berbeda.
+ */
+const waitForFonts = async (): Promise<void> => {
+  if (typeof document !== "undefined" && document.fonts?.ready) {
+    await document.fonts.ready;
+  }
+};
+
+/**
  * Mengukur posisi elemen di dalam innerRef.
  * @param skipDelays - true saat dipanggil dari ResizeObserver (layout sudah stabil)
  */
 const measureElements = async (skipDelays = false) => {
-  if (!innerRef.value) return [];
+  if (!innerRef.value || typeof window === "undefined") return [];
 
   if (!skipDelays) {
-    // Tunggu DOM update + browser paint (wajib untuk layout yang stabil pada mount awal)
     await nextTick();
-    await new Promise((res) => requestAnimationFrame(res));
+    await waitForFonts();
+    await waitForPaint();
   }
 
   const containerRect = innerRef.value.getBoundingClientRect();
+  if (containerRect.width < 1) return [];
+
   const selector =
     'img, h1, h2, h3, h4, h5, h6, p, span:not([data-shimmer-ignore]), button, a[role="button"], .tag, .badge, [class*="-placeholder"], [class*="placeholder"], div[class*="placeholder"]';
 
@@ -95,8 +131,11 @@ const measureElements = async (skipDelays = false) => {
       }
     }
 
-    // Pastikan placeholder punya background
-    if (el.className && el.className.includes("placeholder")) {
+    if (
+      el.className &&
+      typeof el.className === "string" &&
+      el.className.includes("placeholder")
+    ) {
       const bg = style.backgroundColor;
       if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
         color = bg;
@@ -117,20 +156,17 @@ const measureElements = async (skipDelays = false) => {
 };
 
 const update = async () => {
-  if (!innerRef.value) return;
+  if (!innerRef.value || typeof window === "undefined") return;
 
   if (props.loading) {
-    // 1️⃣ Prioritas: Cache (data pernah load sebelumnya di instance ini)
     if (
       hasLoadedOnce.value &&
       props.cacheKey &&
-      shimmerCache.has(props.cacheKey)
+      shimmerCache?.has(props.cacheKey)
     ) {
-      // Set cached blocks langsung untuk tampilan instant
       blocks.value = shimmerCache.get(props.cacheKey)!;
-      // Re-measure setelah DOM settle (real content di-render ulang)
       await nextTick();
-      await new Promise((res) => requestAnimationFrame(res));
+      await waitForPaint();
       if (props.loading && innerRef.value) {
         const fresh = await measureElements(true);
         if (fresh.length > 0) {
@@ -140,27 +176,20 @@ const update = async () => {
       }
       return;
     }
-    // 2️⃣ Fallback: First load → ukur skeleton
     if (slots.skeleton) {
       blocks.value = await measureElements();
     }
     return;
   }
 
-  // 3️⃣ Data muncul: ukur real content & simpan ke cache
   hasLoadedOnce.value = true;
   const real = await measureElements();
   blocks.value = [];
   if (props.cacheKey && real.length > 0) {
-    shimmerCache.set(props.cacheKey, real);
+    shimmerCache?.set(props.cacheKey, real);
   }
 };
 
-/**
- * Handler resize — langsung re-measure tanpa debounce.
- * ResizeObserver fires post-layout, jadi skipDelays=true aman.
- * Guard `measuring` mencegah concurrent measurement.
- */
 const handleResize = async () => {
   if (!innerRef.value || measuring) return;
   measuring = true;
@@ -168,9 +197,8 @@ const handleResize = async () => {
     if (props.loading && (slots.skeleton || blocks.value.length > 0)) {
       const fresh = await measureElements(true);
       blocks.value = fresh;
-      // Update cache juga saat resize
       if (props.cacheKey && fresh.length > 0) {
-        shimmerCache.set(props.cacheKey, fresh);
+        shimmerCache?.set(props.cacheKey, fresh);
       }
     }
   } finally {
@@ -181,9 +209,10 @@ const handleResize = async () => {
 watch(() => props.loading, update);
 
 onMounted(async () => {
+  ensureKeyframes();
   await update();
 
-  if (innerRef.value) {
+  if (innerRef.value && typeof ResizeObserver !== "undefined") {
     const ro = new ResizeObserver(() => {
       handleResize();
     });
@@ -191,34 +220,60 @@ onMounted(async () => {
     onBeforeUnmount(() => ro.disconnect());
   }
 });
+
+// --- Inline style objects (no external CSS dependency) ---
+const outerStyle = {
+  width: "100%",
+};
+
+const innerStyle = {
+  position: "relative" as const,
+  width: "100%",
+  minHeight: "10px",
+};
+
+const layerStyle = {
+  position: "relative" as const,
+  zIndex: 1,
+};
+
+const waveStyle = {
+  position: "absolute" as const,
+  inset: "0",
+  background:
+    "linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.8) 50%, transparent 75%)",
+  animation: "vue-auto-shimmer-move 1.2s infinite linear",
+  backgroundSize: "200% 100%",
+};
 </script>
 
 <template>
   <div
-    class="shimmer-outer"
-    :style="{
-      border: border || '1px solid #e5e7eb',
-      borderRadius: borderRadius || '8px',
-      boxShadow: boxShadow || '0 2px 8px rgba(0,0,0,0.05)',
-      backgroundColor: bgColor || '#ffffff',
-      padding: padding || '1.5rem',
-      boxSizing: 'border-box',
-      overflow: 'hidden',
-      position: 'relative',
-    }"
+    :style="[
+      outerStyle,
+      {
+        border: border || '1px solid #e5e7eb',
+        borderRadius: borderRadius || '8px',
+        boxShadow: boxShadow || '0 2px 8px rgba(0,0,0,0.05)',
+        backgroundColor: bgColor || '#ffffff',
+        padding: padding || '1.5rem',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        position: 'relative',
+      },
+    ]"
   >
-    <div ref="innerRef" class="shimmer-inner">
+    <div ref="innerRef" :style="innerStyle">
       <!-- SKELETON: Tampil saat loading pertama (belum pernah load data) -->
       <div
         v-if="loading && slots.skeleton && !hasLoadedOnce"
-        class="shimmer-layer"
+        :style="layerStyle"
       >
         <slot name="skeleton" />
       </div>
 
-      <!-- CONTENT: Tampil saat !loading ATAU saat loading+sudah pernah load
-           (data lama tetap di-render, tapi ditutupi shimmer overlay) -->
-      <div v-else class="shimmer-layer">
+      <!-- CONTENT: Tampil saat !loading ATAU saat loading+sudah pernah load -->
+      <div v-else :style="layerStyle">
         <slot />
       </div>
 
@@ -227,9 +282,10 @@ onMounted(async () => {
         <div
           v-for="b in blocks"
           :key="b.id"
-          class="shimmer-block"
           :style="{
             position: 'absolute',
+            zIndex: 2,
+            pointerEvents: 'none',
             top: b.top + 'px',
             left: b.left + 'px',
             width: b.width + 'px',
@@ -240,49 +296,9 @@ onMounted(async () => {
             boxSizing: 'border-box',
           }"
         >
-          <div class="shimmer-wave" />
+          <div :style="waveStyle" />
         </div>
       </template>
     </div>
   </div>
 </template>
-
-<style scoped>
-.shimmer-outer {
-  width: 100%;
-}
-.shimmer-inner {
-  position: relative;
-  width: 100%;
-  min-height: 10px;
-}
-.shimmer-layer {
-  position: relative;
-  z-index: 1;
-}
-.shimmer-block {
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-}
-.shimmer-wave {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 25%,
-    rgba(255, 255, 255, 0.8) 50%,
-    transparent 75%
-  );
-  animation: shimmer-move 1.2s infinite linear;
-  background-size: 200% 100%;
-}
-@keyframes shimmer-move {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-</style>

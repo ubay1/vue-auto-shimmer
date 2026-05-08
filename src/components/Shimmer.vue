@@ -8,6 +8,8 @@ import {
   useSlots,
 } from "vue";
 
+// Cache disimpan di luar component agar persist antar re-render
+// dan bisa di-share antar instance dengan cacheKey yang sama
 const shimmerCache = new Map<string, any[]>();
 
 const props = defineProps<{
@@ -21,9 +23,11 @@ const props = defineProps<{
 }>();
 
 const slots = useSlots();
-// Ref untuk Inner Wrapper (Area setelah padding)
 const innerRef = ref<HTMLElement | null>(null);
-const blocks = ref<any>([]);
+const blocks = ref<any[]>([]);
+
+// Per-instance: apakah data sudah pernah load (real content pernah tampil)
+const hasLoadedOnce = ref(false);
 
 // Guard agar tidak ada concurrent measurement
 let measuring = false;
@@ -36,18 +40,15 @@ const measureElements = async (skipDelays = false) => {
   if (!innerRef.value) return [];
 
   if (!skipDelays) {
-    // 1. Tunggu DOM update
+    // Tunggu DOM update + browser paint (wajib untuk layout yang stabil pada mount awal)
     await nextTick();
-    // 2. Tunggu Browser Paint (Wajib untuk layout yang stabil)
     await new Promise((res) => requestAnimationFrame(res));
   }
 
-  // Ukur relatif terhadap INNER (0,0 adalah pojok kiri atas setelah padding)
   const containerRect = innerRef.value.getBoundingClientRect();
   const selector =
-    'img, h1, h2, h3, h4, h5, h6, p, span:not([data-shimmer-ignore]), button, a[role="button"], .tag, .badge';
+    'img, h1, h2, h3, h4, h5, h6, p, span:not([data-shimmer-ignore]), button, a[role="button"], .tag, .badge, [class*="-placeholder"], [class*="placeholder"], div[class*="placeholder"]';
 
-  // Query hanya elemen yang VISIBLE (v-if memastikan ini aman)
   const elements = Array.from(
     innerRef.value.querySelectorAll(selector),
   ) as HTMLElement[];
@@ -56,19 +57,17 @@ const measureElements = async (skipDelays = false) => {
   for (const el of elements) {
     if (el.closest("[data-shimmer-skip]")) continue;
     const rect = el.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) continue;
+    if (rect.width < 1 || rect.height < 1) continue;
 
     const style = getComputedStyle(el);
     const tag = el.tagName.toLowerCase();
     const textRects = el.getClientRects();
 
-    // Hitung koordinat relatif terhadap Inner Container
     let top = rect.top - containerRect.top;
     let left = rect.left - containerRect.left;
     let width = rect.width;
     let height = rect.height;
 
-    // Fix centering untuk teks pendek
     if (
       ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span"].includes(tag) &&
       textRects.length > 0
@@ -80,7 +79,6 @@ const measureElements = async (skipDelays = false) => {
       }
     }
 
-    // Clamp width agar tidak keluar batas
     width = Math.min(width, containerRect.width - left);
 
     let radius = style.borderRadius || "0px";
@@ -91,15 +89,26 @@ const measureElements = async (skipDelays = false) => {
       const bg = style.backgroundColor;
       if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") color = bg;
     } else if (tag === "img") {
-      radius = style.borderRadius || "4px";
+      radius = style.borderRadius || "50%";
+      if (!el.getAttribute("src")) {
+        color = "#e5e7eb";
+      }
+    }
+
+    // Pastikan placeholder punya background
+    if (el.className && el.className.includes("placeholder")) {
+      const bg = style.backgroundColor;
+      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+        color = bg;
+      }
     }
 
     measured.push({
-      id: `${tag}-${Math.random().toString(36).slice(2, 8)}`,
-      top,
-      left,
-      width,
-      height,
+      id: `${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      top: Math.round(top),
+      left: Math.round(left),
+      width: Math.round(width),
+      height: Math.round(height),
       borderRadius: radius,
       background: color,
     });
@@ -111,50 +120,57 @@ const update = async () => {
   if (!innerRef.value) return;
 
   if (props.loading) {
-    // 1️ Prioritas: Cache (jika data pernah load)
-    if (props.cacheKey && shimmerCache.has(props.cacheKey)) {
-      blocks.value = shimmerCache.get(props.cacheKey);
+    // 1️⃣ Prioritas: Cache (data pernah load sebelumnya di instance ini)
+    if (
+      hasLoadedOnce.value &&
+      props.cacheKey &&
+      shimmerCache.has(props.cacheKey)
+    ) {
+      // Set cached blocks langsung untuk tampilan instant
+      blocks.value = shimmerCache.get(props.cacheKey)!;
+      // Re-measure setelah DOM settle (real content di-render ulang)
+      await nextTick();
+      await new Promise((res) => requestAnimationFrame(res));
+      if (props.loading && innerRef.value) {
+        const fresh = await measureElements(true);
+        if (fresh.length > 0) {
+          blocks.value = fresh;
+          shimmerCache.set(props.cacheKey, fresh);
+        }
+      }
       return;
     }
-    // 2️⃣ Fallback: First Load (ukur Skeleton)
+    // 2️⃣ Fallback: First load → ukur skeleton
     if (slots.skeleton) {
       blocks.value = await measureElements();
-      return;
     }
-    blocks.value = [];
     return;
   }
 
-  // 3️⃣ Data Muncul: Ukur Konten Asli & Update Cache
+  // 3️⃣ Data muncul: ukur real content & simpan ke cache
+  hasLoadedOnce.value = true;
   const real = await measureElements();
   blocks.value = [];
-  if (props.cacheKey) {
+  if (props.cacheKey && real.length > 0) {
     shimmerCache.set(props.cacheKey, real);
   }
 };
 
 /**
- * Handler resize — selalu force re-measure (skip cache),
- * skip delays karena ResizeObserver fires post-layout.
+ * Handler resize — langsung re-measure tanpa debounce.
+ * ResizeObserver fires post-layout, jadi skipDelays=true aman.
+ * Guard `measuring` mencegah concurrent measurement.
  */
 const handleResize = async () => {
   if (!innerRef.value || measuring) return;
   measuring = true;
   try {
-    if (props.loading) {
-      // Saat loading: re-measure skeleton/cached content langsung
-      if (slots.skeleton || blocks.value.length > 0) {
-        const fresh = await measureElements(true);
-        blocks.value = fresh;
-        if (props.cacheKey) {
-          shimmerCache.set(props.cacheKey, fresh);
-        }
-      }
-    } else {
-      // Saat tidak loading: re-measure konten asli & update cache
-      const real = await measureElements(true);
-      if (props.cacheKey) {
-        shimmerCache.set(props.cacheKey, real);
+    if (props.loading && (slots.skeleton || blocks.value.length > 0)) {
+      const fresh = await measureElements(true);
+      blocks.value = fresh;
+      // Update cache juga saat resize
+      if (props.cacheKey && fresh.length > 0) {
+        shimmerCache.set(props.cacheKey, fresh);
       }
     }
   } finally {
@@ -166,6 +182,7 @@ watch(() => props.loading, update);
 
 onMounted(async () => {
   await update();
+
   if (innerRef.value) {
     const ro = new ResizeObserver(() => {
       handleResize();
@@ -177,7 +194,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <!-- OUTER: Mengurus Border, Radius, Shadow, Padding -->
   <div
     class="shimmer-outer"
     :style="{
@@ -188,28 +204,25 @@ onMounted(async () => {
       padding: padding || '1.5rem',
       boxSizing: 'border-box',
       overflow: 'hidden',
+      position: 'relative',
     }"
   >
-    <!-- INNER: Area Koordinat (0,0) untuk Shimmer & Konten -->
     <div ref="innerRef" class="shimmer-inner">
-      <!-- 1. SKELETON (Tampil saat Loading & Belum Cache) -->
+      <!-- SKELETON: Tampil saat loading pertama (belum pernah load data) -->
       <div
-        v-if="
-          loading &&
-          slots.skeleton &&
-          (!cacheKey || !shimmerCache.has(cacheKey))
-        "
+        v-if="loading && slots.skeleton && !hasLoadedOnce"
         class="shimmer-layer"
       >
         <slot name="skeleton" />
       </div>
 
-      <!-- 2. KONTEN ASLI (Tampil saat !Loading) -->
+      <!-- CONTENT: Tampil saat !loading ATAU saat loading+sudah pernah load
+           (data lama tetap di-render, tapi ditutupi shimmer overlay) -->
       <div v-else class="shimmer-layer">
         <slot />
       </div>
 
-      <!-- 3. SHIMMER BLOCKS (Overlay di atas Inner) -->
+      <!-- SHIMMER BLOCKS -->
       <template v-if="loading && blocks.length > 0">
         <div
           v-for="b in blocks"
@@ -217,10 +230,10 @@ onMounted(async () => {
           class="shimmer-block"
           :style="{
             position: 'absolute',
-            top: `${b.top}px`,
-            left: `${b.left}px`,
-            width: `${b.width}px`,
-            height: `${b.height}px`,
+            top: b.top + 'px',
+            left: b.left + 'px',
+            width: b.width + 'px',
+            height: b.height + 'px',
             borderRadius: b.borderRadius,
             background: b.background,
             overflow: 'hidden',
@@ -258,10 +271,10 @@ onMounted(async () => {
   background: linear-gradient(
     90deg,
     transparent 25%,
-    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0.8) 50%,
     transparent 75%
   );
-  animation: shimmer-move 1.5s infinite linear;
+  animation: shimmer-move 1.2s infinite linear;
   background-size: 200% 100%;
 }
 @keyframes shimmer-move {

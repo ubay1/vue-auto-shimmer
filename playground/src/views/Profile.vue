@@ -131,7 +131,7 @@ const refreshProfile = () => fetchProfile(route.params.userId as string);
             </div>
           </div>
 
-          <div class="tags-placeholder">
+          <div class="tags">
             <span class="tag-placeholder"></span>
             <span class="tag-placeholder"></span>
             <span class="tag-placeholder"></span>
@@ -290,6 +290,7 @@ const refreshProfile = () => fetchProfile(route.params.userId as string);
 }
 
 .label-placeholder {
+  display: inline-block;
   width: 40px;
   height: 12px;
   background: #e5e7eb;
@@ -297,20 +298,15 @@ const refreshProfile = () => fetchProfile(route.params.userId as string);
 }
 
 .value-placeholder {
+  display: inline-block;
   width: 120px;
   height: 14px;
   background: #e5e7eb;
   border-radius: 4px;
 }
 
-.tags-placeholder {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
 .tag-placeholder {
+  display: inline-block;
   width: 70px;
   height: 24px;
   background: #e5e7eb;

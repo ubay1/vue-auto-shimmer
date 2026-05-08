@@ -19,7 +19,7 @@ const fetchData = () => {
       tags: ["Vue 3", "TypeScript", "UI/UX", "Frontend", "Backend", "DevOps"], // Added more tags to test wrap
     };
     loading.value = false;
-  }, 10000);
+  }, 2000);
 };
 
 onMounted(() => fetchData());
@@ -68,9 +68,7 @@ onMounted(() => fetchData());
           <div class="avatar-placeholder"></div>
           <h2 class="title-placeholder"></h2>
           <p class="bio-placeholder"></p>
-
-          <!-- Tags Placeholder dengan Flex Wrap (Identik Struktur) -->
-          <div class="tags-placeholder">
+          <div class="tags">
             <span class="tag-placeholder"></span>
             <span class="tag-placeholder"></span>
             <span class="tag-placeholder"></span>
@@ -209,7 +207,7 @@ onMounted(() => fetchData());
 }
 
 /* Tags Placeholder - FLEX WRAP DITAMBAHKAN DISINI */
-.tags-placeholder {
+.tags {
   display: flex;
   flex-wrap: wrap; /* Sinkron dengan konten asli */
   gap: 0.5rem;
@@ -219,6 +217,7 @@ onMounted(() => fetchData());
 }
 
 .tag-placeholder {
+  display: inline-block;
   width: 60px;
   height: 24px;
   background: #e5e7eb;

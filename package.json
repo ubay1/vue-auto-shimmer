@@ -1,6 +1,6 @@
 {
   "name": "@ubay182/vue-auto-shimmer",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Vue 3 auto shimmer loading component",
   "private": false,
   "type": "module",

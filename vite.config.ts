@@ -35,8 +35,15 @@ export default defineConfig(({ command }) => {
         fileName: (format) => `vue-auto-shimmer.${format === 'es' ? 'mjs' : 'cjs'}`
       },
       rollupOptions: {
-        external: ['vue'],
-        output: { 
+        external: [
+          'vue',
+          'vue-router',
+          '@vue/runtime-core',
+          '@vue/runtime-dom',
+          '@vue/reactivity',
+          '@vue/shared',
+        ],
+        output: {
           globals: { vue: 'Vue' },
           exports: 'named'
         }

@@ -46,6 +46,8 @@ const hasLoadedOnce = ref(false);
 // Guard agar tidak ada concurrent measurement
 let measuring = false;
 
+let ro: any = null;
+
 /**
  * Tunggu browser paint dengan double-rAF pattern.
  * Double rAF memastikan satu full frame telah dipaint sebelum mengukur.
@@ -99,16 +101,16 @@ const measureElements = async (skipDelays = false) => {
     const tag = el.tagName.toLowerCase();
     const textRects = el.getClientRects();
 
-    let top = rect.top - containerRect.top;
+    const top = rect.top - containerRect.top;
     let left = rect.left - containerRect.left;
     let width = rect.width;
-    let height = rect.height;
+    const height = rect.height;
 
     if (
       ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span"].includes(tag) &&
       textRects.length > 0
     ) {
-      const tRect = textRects[0];
+      const tRect: any = textRects[0];
       if (tRect.width < rect.width * 0.9) {
         width = tRect.width;
         left = tRect.left - containerRect.left;
@@ -154,6 +156,8 @@ const measureElements = async (skipDelays = false) => {
   }
   return measured;
 };
+
+const isInitializing = ref(true);
 
 const update = async () => {
   if (!innerRef.value || typeof window === "undefined") return;
@@ -208,16 +212,21 @@ const handleResize = async () => {
 
 watch(() => props.loading, update);
 
+onBeforeUnmount(() => {
+  if (ro) ro.disconnect();
+});
+
 onMounted(async () => {
   ensureKeyframes();
-  await update();
+  await update(); // ⚠️ await pertama ada di sini
+
+  isInitializing.value = false;
 
   if (innerRef.value && typeof ResizeObserver !== "undefined") {
-    const ro = new ResizeObserver(() => {
+    ro = new ResizeObserver(() => {
       handleResize();
     });
     ro.observe(innerRef.value);
-    onBeforeUnmount(() => ro.disconnect());
   }
 });
 
@@ -266,7 +275,7 @@ const waveStyle = {
     <div ref="innerRef" :style="innerStyle">
       <!-- SKELETON: Tampil saat loading pertama (belum pernah load data) -->
       <div
-        v-if="loading && slots.skeleton && !hasLoadedOnce"
+        v-if="(loading || isInitializing) && slots.skeleton && !hasLoadedOnce"
         :style="layerStyle"
       >
         <slot name="skeleton" />

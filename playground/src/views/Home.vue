@@ -1,10 +1,52 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import Shimmer from "../../../src/components/Shimmer.vue";
+import ShimmerTest from "../components/ShimmerTest.vue";
 // import { Shimmer } from "@ubay182/vue-auto-shimmer";
 
 const loading = ref(true);
 const user = ref<any>(null);
+
+const cardData = ref([
+  {
+    title: "Total Percobaan Login",
+    icon: "material-symbols:login-rounded",
+    iconColor: "#2B7FFF",
+    bgIconColor: "#F8FAFC",
+    value: 0,
+    percentage: 0,
+    description: "vs 1 Januari 2026 - 31 Januari 2026",
+  },
+  {
+    title: "Login Sukses",
+    icon: "material-symbols:check-rounded",
+    iconColor: "#40AE87",
+    bgIconColor: "#F4FFFB",
+    value: 0,
+    percentage: 0,
+    description: "vs 1 Januari 2026 - 31 Januari 2026",
+  },
+  {
+    title: "Login Gagal",
+    icon: "material-symbols:close-rounded",
+    iconColor: "#D43030",
+    bgIconColor: "#FFF4F4",
+    value: 0,
+    percentage: 0,
+    description: "vs 1 Januari 2026 - 31 Januari 2026",
+  },
+  {
+    title: "Tingkat Keberhasilan",
+    icon: "material-symbols:percent-rounded",
+    iconColor: "#2B7FFF",
+    bgIconColor: "#F8FAFC",
+    value: 0,
+    percentage: 0,
+    percentageColor: "#007A55",
+    bgPercentageColor: "#ECFDF5",
+    description: "vs 1 Januari 2026 - 31 Januari 2026",
+  },
+]);
 
 const fetchData = () => {
   loading.value = true;
@@ -27,61 +69,156 @@ onMounted(() => fetchData());
 </script>
 
 <template>
-  <div class="playground-container">
-    <div class="controls">
-      <button @click="fetchData" :disabled="loading" class="btn primary">
-        {{ loading ? "Loading..." : "Refresh Data" }}
-      </button>
-    </div>
+  <div>
+    <div class="playground-container">
+      <Shimmer
+        :loading="loading"
+        cache-key="login-activity-card"
+        border="1px solid #e5e7eb"
+        border-radius="12px"
+        box-shadow="0 4px 12px rgba(0,0,0,0.05)"
+        bg-color="#ffffff"
+        padding="1.5rem"
+      >
+        <div
+          class="gap-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 items-center justify-center"
+        >
+          <div
+            v-for="item in cardData"
+            :key="item.title"
+            class="border border-gray-100 rounded-lg p-3 space-y-1"
+          >
+            <div
+              class="grid grid-cols-[auto_40px] items-center gap-2 justify-between"
+            >
+              <h3
+                class="text-sm font-semibold tracking-[0.5px] leading-[125%] text-[#62686F]"
+              >
+                {{ item.title }}
+              </h3>
+              <div
+                class="w-10 h-10 flex justify-center items-center rounded-xl"
+                :style="{ backgroundColor: item.bgIconColor }"
+              >
+                <Icon
+                  :name="item.icon"
+                  :style="{
+                    color: item.iconColor,
+                    width: '20px',
+                    height: '20px',
+                  }"
+                />
+              </div>
+            </div>
+            <div class="mt-4 flex items-center gap-2">
+              <h1
+                class="font-bold text-lg tracking-[0.5px] leading-[125%] text-[#313336]"
+              >
+                {{ item.value }}
+              </h1>
+              <div
+                :style="{
+                  backgroundColor: item.percentage >= 0 ? '#ECFDF5' : '#FEF2F2',
+                }"
+                class="rounded-[8px] h-[20px] mt-1 flex items-center justify-center px-2 gap-1"
+              >
+                <Icon
+                  v-if="item.percentage >= 0"
+                  name="material-symbols:arrow-outward"
+                  :style="{ color: '#007A55', width: '14px', height: '14px' }"
+                />
+                <Icon
+                  v-else
+                  name="material-symbols:arrow-outward"
+                  :style="{
+                    color: '#C10007',
+                    width: '14px',
+                    height: '14px',
+                    transform: 'rotate(90deg)',
+                  }"
+                />
+                <span
+                  :style="{
+                    color: item.percentage >= 0 ? '#007A55' : '#C10007',
+                  }"
+                  class="text-xs leading-[16px] font-semibold"
+                >
+                  {{ item.percentage }} %
+                </span>
+              </div>
+            </div>
 
-    <Shimmer
-      :loading="loading"
-      cache-key="user-profile"
-      border="1px solid #e5e7eb"
-      border-radius="12px"
-      box-shadow="0 4px 12px rgba(0,0,0,0.05)"
-      bg-color="#ffffff"
-      padding="1.5rem"
-    >
-      <!-- KONTEN ASLI -->
-      <div class="flex-col-center">
-        <img v-if="user?.avatar" :src="user.avatar" class="avatar" />
-        <h2 class="title">{{ user?.name || "Loading Name..." }}</h2>
-        <p class="bio">{{ user?.bio || "Loading bio..." }}</p>
-
-        <!-- Tags Container dengan Flex Wrap -->
-        <div class="tags">
-          <span v-for="tag in user?.tags || []" :key="tag" class="tag">{{
-            tag
-          }}</span>
+            <div class="mt-4">
+              <span
+                class="text-sm tracking-[0.25px] leading-[150%] text-[#62686F]"
+                >{{ item.description }}</span
+              >
+            </div>
+          </div>
         </div>
 
-        <button class="btn action">
-          <RouterLink to="/profile" style="color: white">
-            View Profile
-          </RouterLink>
+        <template #skeleton>
+          <ShimmerTest />
+        </template>
+      </Shimmer>
+    </div>
+
+    <div class="playground-container">
+      <div class="controls">
+        <button @click="fetchData" :disabled="loading" class="btn primary">
+          {{ loading ? "Loading..." : "Refresh Data" }}
         </button>
       </div>
 
-      <!-- SKELETON BLUEPRINT -->
-      <template #skeleton>
+      <Shimmer
+        :loading="loading"
+        cache-key="user-profile"
+        border="1px solid #e5e7eb"
+        border-radius="12px"
+        box-shadow="0 4px 12px rgba(0,0,0,0.05)"
+        bg-color="#ffffff"
+        padding="1.5rem"
+      >
+        <!-- KONTEN ASLI -->
         <div class="flex-col-center">
-          <div class="avatar-placeholder"></div>
-          <h2 class="title-placeholder"></h2>
-          <p class="bio-placeholder"></p>
+          <img v-if="user?.avatar" :src="user.avatar" class="avatar" />
+          <h2 class="title">{{ user?.name || "Loading Name..." }}</h2>
+          <p class="bio">{{ user?.bio || "Loading bio..." }}</p>
+
+          <!-- Tags Container dengan Flex Wrap -->
           <div class="tags">
-            <span class="tag-placeholder"></span>
-            <span class="tag-placeholder"></span>
-            <span class="tag-placeholder"></span>
-            <span class="tag-placeholder"></span>
-            <span class="tag-placeholder"></span>
-            <span class="tag-placeholder"></span>
+            <span v-for="tag in user?.tags || []" :key="tag" class="tag">{{
+              tag
+            }}</span>
           </div>
 
-          <button class="btn action">View Profile</button>
+          <button class="btn action">
+            <RouterLink to="/profile" style="color: white">
+              View Profile
+            </RouterLink>
+          </button>
         </div>
-      </template>
-    </Shimmer>
+
+        <!-- SKELETON BLUEPRINT -->
+        <template #skeleton>
+          <div class="flex-col-center">
+            <div class="avatar-placeholder"></div>
+            <h2 class="title-placeholder"></h2>
+            <p class="bio-placeholder"></p>
+            <div class="tags">
+              <span class="tag-placeholder"></span>
+              <span class="tag-placeholder"></span>
+              <span class="tag-placeholder"></span>
+              <span class="tag-placeholder"></span>
+              <span class="tag-placeholder"></span>
+              <span class="tag-placeholder"></span>
+            </div>
+
+            <button class="btn action">View Profile</button>
+          </div>
+        </template>
+      </Shimmer>
+    </div>
   </div>
 </template>
 

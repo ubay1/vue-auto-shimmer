@@ -2,12 +2,13 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ command }) => {
   if (command === 'serve') {
     return {
       root: resolve(__dirname, 'playground'),
-      plugins: [vue()],
+      plugins: [vue(), tailwindcss()],
       resolve: {
         alias: {
           '@ubay182/vue-auto-shimmer': resolve(__dirname, 'src/index.ts')
